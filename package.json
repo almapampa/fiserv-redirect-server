@@ -6,6 +6,9 @@
   "scripts": {
     "test": "echo \"No tests configured\""
   },
+  "dependencies": {
+    "googleapis": "^140.0.0"
+  },
   "keywords": ["fiserv", "shopify", "payment", "redirect"],
   "author": "Alma Pampa",
   "license": "ISC"
