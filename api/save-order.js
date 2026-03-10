@@ -43,12 +43,13 @@ export default async function handler(req, res) {
       data.finalTotal || '',
       data.installments || '',
       'PENDIENTE DE PAGO',
+      data.oid || '',
       data.cartItems || '',
     ];
 
     await sheets.spreadsheets.values.append({
       spreadsheetId: process.env.GOOGLE_SHEET_ID,
-      range: 'Sheet1!A:P',
+      range: 'Sheet1!A:Q',
       valueInputOption: 'RAW',
       resource: { values: [row] },
     });
