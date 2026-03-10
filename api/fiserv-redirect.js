@@ -1,11 +1,5 @@
 import { google } from 'googleapis';
 
-const SHIPPING_COSTS = {
-  'AR': 0,
-  'CL': 0,
-  'US': 98000,
-};
-
 function getGoogleAuth() {
   const privateKey = process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n');
   return new google.auth.JWT({
@@ -35,7 +29,7 @@ async function saveToSheets(orderData) {
     orderData.finalTotal,
     orderData.installments,
     'PENDIENTE DE PAGO',
-    orderData.cartItems || '',
+    orderData.oid || '',
   ];
 
   await sheets.spreadsheets.values.append({
@@ -46,7 +40,7 @@ async function saveToSheets(orderData) {
   });
 }
 
-async function updateOrderStatus(email, transactionId, status, approvalCode) {
+async function updateOrderStatus(oid, transactionId, status, approvalCode) {
   const auth = getGoogleAuth();
   const sheets = google.sheets({ version: 'v4', auth });
 
@@ -56,7 +50,8 @@ async function updateOrderStatus(email, transactionId, status, approvalCode) {
   });
 
   const rows = response.data.values || [];
-  const rowIndex = rows.findIndex(row => row[2] === email);
+  // El oid está en columna P (índice 15)
+  const rowIndex = rows.findIndex(row => row[15] === oid);
   
   if (rowIndex !== -1) {
     const sheetRow = rowIndex + 1;
@@ -72,16 +67,6 @@ async function updateOrderStatus(email, transactionId, status, approvalCode) {
 }
 
 export default async function handler(req, res) {
-
-  if (req.method === 'POST' && req.url.includes('/save-order')) {
-    try {
-      await saveToSheets(req.body);
-      return res.status(200).json({ ok: true });
-    } catch (error) {
-      console.error('Error guardando en Sheets:', error);
-      return res.status(500).json({ error: 'Error guardando pedido' });
-    }
-  }
 
   if (req.method === 'POST' && req.url.includes('/fiserv-redirect')) {
     try {
@@ -103,9 +88,9 @@ export default async function handler(req, res) {
       try {
         const sheetStatus = isSuccess ? 'APROBADO' : 'RECHAZADO';
         await updateOrderStatus(
-          req.body.email || '', 
-          ipgTransactionId, 
-          sheetStatus, 
+          oid || '',
+          ipgTransactionId,
+          sheetStatus,
           approval_code
         );
       } catch (sheetError) {
