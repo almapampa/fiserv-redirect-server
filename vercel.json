@@ -10,6 +10,10 @@
     {
       "src": "/fiserv-redirect",
       "dest": "/api/fiserv-redirect.js"
+    },
+    {
+      "src": "/save-order",
+      "dest": "/api/save-order.js"
     }
   ]
 }
