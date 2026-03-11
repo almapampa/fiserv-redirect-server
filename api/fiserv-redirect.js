@@ -57,10 +57,10 @@ async function updateOrderStatus(oid, transactionId, status, approvalCode) {
     const sheetRow = rowIndex + 1;
     await sheets.spreadsheets.values.update({
       spreadsheetId: process.env.GOOGLE_SHEET_ID,
-      range: `Sheet1!O${sheetRow}:P${sheetRow}`,
+      range: `Sheet1!O${sheetRow}`,
       valueInputOption: 'RAW',
       resource: { 
-        values: [[status, `ID: ${transactionId} | Aprobación: ${approvalCode}`]] 
+      values: [[status]] 
       },
     });
   }
