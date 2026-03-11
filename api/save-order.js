@@ -45,11 +45,12 @@ export default async function handler(req, res) {
       'PENDIENTE DE PAGO',
       data.oid || '',
       data.cartItems || '',
+      data.notes || '',
     ];
 
     await sheets.spreadsheets.values.append({
       spreadsheetId: process.env.GOOGLE_SHEET_ID,
-      range: 'Sheet1!A:Q',
+      range: 'Sheet1!A:R',
       valueInputOption: 'RAW',
       resource: { values: [row] },
     });
