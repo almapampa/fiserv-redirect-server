@@ -27,7 +27,6 @@ export default async function handler(req, res) {
     const sheets = google.sheets({ version: 'v4', auth });
 
     const data = req.body;
-    console.log('BODY COMPLETO:', JSON.stringify(data));
     const row = [
       new Date().toLocaleString('es-AR', { timeZone: 'America/Argentina/Mendoza' }),
       (data.firstName || '') + ' ' + (data.lastName || ''),
