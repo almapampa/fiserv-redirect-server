@@ -46,7 +46,7 @@ async function updateOrderStatus(oid, transactionId, status, approvalCode) {
 
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId: process.env.GOOGLE_SHEET_ID,
-    range: 'Sheet1!A:P',
+    range: 'Sheet1!A:Q',
   });
 
   const rows = response.data.values || [];
