@@ -7,8 +7,9 @@
     "test": "echo \"No tests configured\""
   },
   "dependencies": {
-    "googleapis": "^140.0.0"
-  },
+  "googleapis": "^140.0.0",
+  "resend": "^3.2.0"
+},
   "keywords": ["fiserv", "shopify", "payment", "redirect"],
   "author": "Alma Pampa",
   "license": "ISC"
