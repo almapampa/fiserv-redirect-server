@@ -1,23 +1,7 @@
 {
-  "version": 2,
-  "builds": [
-    {
-      "src": "api/**/*.js",
-      "use": "@vercel/node"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/fiserv-redirect",
-      "dest": "/api/fiserv-redirect.js"
-    },
-    {
-      "src": "/save-order",
-      "dest": "/api/save-order.js"
-    },
-    {
-      "src": "/send-notification",
-      "dest": "/api/send-notification.js"
-    }
+  "rewrites": [
+    { "source": "/fiserv-redirect", "destination": "/api/fiserv-redirect" },
+    { "source": "/save-order", "destination": "/api/save-order" },
+    { "source": "/send-notification", "destination": "/api/send-notification" }
   ]
 }
