@@ -14,6 +14,10 @@
     {
       "src": "/save-order",
       "dest": "/api/save-order.js"
+    },
+    {
+      "src": "/send-notification",
+      "dest": "/api/send-notification.js"
     }
   ]
 }
