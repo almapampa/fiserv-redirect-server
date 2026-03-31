@@ -4,22 +4,28 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 const NOTIFY_EMAIL = 'almapampamendoza@gmail.com';
 
 export default async function handler(req, res) {
+  // CORS headers — deben ir SIEMPRE, antes de cualquier chequeo
   res.setHeader('Access-Control-Allow-Origin', 'https://almapampa.com');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Credentials', 'false');
 
-  if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Método no permitido' });
+  // Preflight OPTIONS — responder inmediatamente con 204
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end();
+  }
+
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Método no permitido' });
+  }
 
   try {
     const d = req.body;
 
-    // Línea de monto según moneda
     const montoLine = d.currency && d.currency !== 'ARS'
       ? `Monto (${d.currency}): ${d.displayTotal}\nMonto (ARS): $${d.arsTotal}`
       : `Monto (ARS): $${d.arsTotal}`;
 
-    // Emoji y título según método
     const methodLabels = {
       transfer:    '🏦 Transferencia bancaria',
       mercadopago: '💳 MercadoPago',
