@@ -34,7 +34,7 @@ async function saveToSheets(d, status) {
   const sheets = google.sheets({ version: 'v4', auth });
 
   // Para transferencia AR: el monto final es el que figura como arsTotal
-  // (ya viene con 20% OFF desde el frontend). displayTotal se deja igual.
+  // (ya viene con 25% OFF desde el frontend). displayTotal se deja igual.
   const row = [
     new Date().toLocaleString('es-AR', { timeZone: 'America/Argentina/Mendoza' }),
     (d.firstName || '') + ' ' + (d.lastName || ''),
@@ -79,7 +79,7 @@ export default async function handler(req, res) {
     const method = normalizeMethod(d.paymentMethod);
 
     const methodLabels = {
-      'transfer-ar': '🏦 Transferencia (AR) — 20% OFF',
+      'transfer-ar': '🏦 Transferencia (AR) — 25% OFF',
       'transfer-cl': '🏦 Transferencia bancaria (Chile)',
       'mercadopago': '💳 MercadoPago (Chile)',
       'fiserv':      '💳 Tarjeta (Fiserv)',
@@ -106,7 +106,7 @@ export default async function handler(req, res) {
       const ahorro = parseFloat(d.originalTotal) - parseFloat(d.arsTotal);
       montoBlock =
         `Monto original (ARS):        ${fmtARS(d.originalTotal)}\n` +
-        `Descuento (20% transfer.):   -${fmtARS(ahorro)}\n` +
+        `Descuento (25% transfer.):   -${fmtARS(ahorro)}\n` +
         `Monto a cobrar (ARS):        ${fmtARS(d.arsTotal)}`;
     } else if (d.currency && d.currency !== 'ARS') {
       montoBlock =
@@ -174,7 +174,7 @@ Fecha: ${fecha}
 
       const resumenMontos = d.originalTotal && d.originalTotal !== d.arsTotal
         ? `Subtotal:                ${fmtARS(d.originalTotal)}\n` +
-          `Descuento por transfer.: -${fmtARS(parseFloat(d.originalTotal) - parseFloat(d.arsTotal))} (20%)\n` +
+          `Descuento por transfer.: -${fmtARS(parseFloat(d.originalTotal) - parseFloat(d.arsTotal))} (25%)\n` +
           `─────────────────────────\n` +
           `TOTAL A TRANSFERIR:     ${fmtARS(d.arsTotal)}`
         : `TOTAL A TRANSFERIR: ${fmtARS(d.arsTotal)}`;
