@@ -3,6 +3,7 @@
     { "source": "/fiserv-redirect", "destination": "/api/fiserv-redirect" },
     { "source": "/save-order", "destination": "/api/save-order" },
     { "source": "/send-notification", "destination": "/api/send-notification" },
-    { "source": "/confirm-payment", "destination": "/api/confirm-payment" }
+    { "source": "/confirm-payment", "destination": "/api/confirm-payment" },
+    { "source": "/generate-hash", "destination": "/api/generate-hash" }
   ]
 }
