@@ -151,7 +151,8 @@ Fecha: ${fecha}
       '&name=' + encodeURIComponent(d.firstName) +
       '&oid=' + encodeURIComponent(d.oid || '') +
       '&items=' + encodeURIComponent(d.cartItems || '') +
-      '&total=' + encodeURIComponent(totalParaConfirmUrl);
+      '&total=' + encodeURIComponent(totalParaConfirmUrl) +
+      '&token=' + encodeURIComponent(process.env.CONFIRM_SECRET_TOKEN);
 
     const storeBodyWithLink = storeBody + '\n\n' +
       '─'.repeat(40) + '\n' +
