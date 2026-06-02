@@ -53,9 +53,14 @@ export default async function handler(req, res) {
     return res.status(405).send('Método no permitido');
   }
 
-  const { email, name, oid, items, total } = req.query;
+  const { email, name, oid, items, total, token } = req.query;
   if (!email || !name) {
     return res.status(400).send('Faltan datos');
+  }
+
+  // Verificar que el token sea válido — rechaza cualquier llamada no autorizada
+  if (!token || token !== process.env.CONFIRM_SECRET_TOKEN) {
+    return res.status(403).send('No autorizado');
   }
 
   try {
