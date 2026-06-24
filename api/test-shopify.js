@@ -1,12 +1,12 @@
 // api/test-shopify.js
 // =====================================================================
-// ARCHIVO TEMPORAL DE PRUEBA
-// Sirve solo para confirmar que Vercel puede pedirle un token a Shopify
-// y hacer una consulta. Una vez que veas "ok": true, se puede BORRAR.
-// No toca nada de la tienda, solo lee.
+// ARCHIVO TEMPORAL DE PRUEBA (versión 2)
+// Confirma que Vercel puede pedir un token a Shopify y MUESTRA qué
+// permisos (scopes) tiene realmente ese token. No toca nada, solo lee.
+// Una vez que veas los 3 permisos, se puede BORRAR.
 // =====================================================================
 
-const SHOP = process.env.SHOPIFY_STORE_DOMAIN;      // ej: almapampa.myshopify.com
+const SHOP = process.env.SHOPIFY_STORE_DOMAIN;      // ej: mu4ph1-kv.myshopify.com
 const CLIENT_ID = process.env.SHOPIFY_CLIENT_ID;
 const CLIENT_SECRET = process.env.SHOPIFY_CLIENT_SECRET;
 const API_VERSION = "2026-04";
@@ -43,15 +43,12 @@ export default async function handler(req, res) {
         paso: "token",
         status: tokenResp.status,
         error: tokenData,
-        ayuda:
-          "Si ves 'shop_not_permitted', la tienda no está en la misma " +
-          "organización que la app. Copiá este error y mandáselo a Claude.",
       });
     }
 
     const token = tokenData.access_token;
 
-    // 2) Consulta mínima para confirmar el acceso (nombre de la tienda + 1 producto)
+    // 2) Consulta mínima que NO necesita permisos especiales (solo el nombre de la tienda)
     const gqlResp = await fetch(
       `https://${SHOP}/admin/api/${API_VERSION}/graphql.json`,
       {
@@ -61,31 +58,23 @@ export default async function handler(req, res) {
           "X-Shopify-Access-Token": token,
         },
         body: JSON.stringify({
-          query:
-            "{ shop { name myshopifyDomain } products(first: 1) { edges { node { title } } } }",
+          query: "{ shop { name myshopifyDomain } }",
         }),
       }
     );
 
     const gqlData = await gqlResp.json();
 
-    if (gqlData.errors) {
-      return res.status(500).json({
-        ok: false,
-        paso: "consulta",
-        error: gqlData.errors,
-      });
-    }
-
-    // 3) Todo bien
+    // 3) Mostrar SIEMPRE los permisos que tiene el token (esto es lo que nos importa ahora)
     return res.status(200).json({
       ok: true,
-      mensaje: "¡Funciona! Vercel puede hablar con Shopify.",
-      scopes_otorgados: tokenData.scope,
+      mensaje: "Token obtenido correctamente. Revisá los permisos abajo.",
+      permisos_activos: tokenData.scope,
+      tiene_write_orders: (tokenData.scope || "").includes("write_orders"),
+      tiene_read_orders: (tokenData.scope || "").includes("read_orders"),
+      tiene_read_products: (tokenData.scope || "").includes("read_products"),
       token_expira_en_segundos: tokenData.expires_in,
-      tienda: gqlData.data.shop,
-      primer_producto:
-        gqlData.data.products.edges[0]?.node?.title ?? "(no hay productos)",
+      tienda: gqlData?.data?.shop ?? null,
     });
   } catch (err) {
     return res.status(500).json({
