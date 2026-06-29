@@ -56,10 +56,11 @@ async function saveToSheets(d, status) {
     d.notes || '',
     d.currency || 'ARS',
     d.displayTotal || '',
+    JSON.stringify(d.lineItems || []),   // columna U — IDs y cantidades de productos (para crear la orden en Shopify)
   ];
   await sheets.spreadsheets.values.append({
     spreadsheetId: process.env.GOOGLE_SHEET_ID,
-    range: 'Sheet1!A:T',
+    range: 'Sheet1!A:U',
     valueInputOption: 'RAW',
     resource: { values: [row] },
   });
