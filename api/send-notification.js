@@ -57,10 +57,14 @@ async function saveToSheets(d, status) {
     d.currency || 'ARS',
     d.displayTotal || '',
     JSON.stringify(d.lineItems || []),   // columna U — IDs y cantidades de productos (para crear la orden en Shopify)
+    '',                                  // columna V — reservada: nº de orden de Shopify (la escribe confirm-payment)
+    d.fbp || '',                         // columna W — cookie _fbp del navegador
+    d.fbc || '',                         // columna X — cookie _fbc (o reconstruida desde fbclid)
+    d.eventId || '',                     // columna Y — ID único del evento (deduplicación en Meta)
   ];
   await sheets.spreadsheets.values.append({
     spreadsheetId: process.env.GOOGLE_SHEET_ID,
-    range: 'Sheet1!A:U',
+    range: 'Sheet1!A:Y',
     valueInputOption: 'RAW',
     resource: { values: [row] },
   });
