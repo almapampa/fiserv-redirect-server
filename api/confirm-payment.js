@@ -1,5 +1,6 @@
 import { Resend } from 'resend';
 import { google } from 'googleapis';
+import crypto from 'crypto';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const STORE_EMAIL = 'almapampamendoza@gmail.com';
@@ -9,6 +10,14 @@ const SHOP = process.env.SHOPIFY_STORE_DOMAIN;          // mu4ph1-kv.myshopify.c
 const SHOPIFY_CLIENT_ID = process.env.SHOPIFY_CLIENT_ID;
 const SHOPIFY_CLIENT_SECRET = process.env.SHOPIFY_CLIENT_SECRET;
 const SHOPIFY_API_VERSION = '2026-04';
+
+// ── META CONVERSIONS API ─────────────────────────────────────────
+const META_PIXEL_ID = process.env.META_PIXEL_ID;
+const META_CAPI_TOKEN = process.env.META_CAPI_TOKEN;
+const META_API_VERSION = 'v21.0';
+// Opcional: si querés ver los eventos en "Probar eventos" del Events Manager,
+// creá la variable META_TEST_EVENT_CODE en Vercel. Borrala cuando termines de probar.
+const META_TEST_EVENT_CODE = process.env.META_TEST_EVENT_CODE || '';
 
 // Códigos de país → nombre que Shopify entiende en la dirección de envío
 const COUNTRY_NAMES = { AR: 'Argentina', CL: 'Chile', US: 'United States' };
@@ -47,7 +56,7 @@ async function buscarFilaPedido(oid) {
 
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId: process.env.GOOGLE_SHEET_ID,
-    range: 'Sheet1!A:V',
+    range: 'Sheet1!A:Y',
   });
 
   const rows = response.data.values || [];
@@ -166,6 +175,140 @@ async function crearOrdenShopify(datos) {
   return { ok: false, motivo: 'respuesta_inesperada' };
 }
 
+// ── META: helpers de normalización y hasheo ──────────────────────
+// Meta exige los datos del cliente en SHA-256, normalizados antes de hashear.
+function sha256(valor) {
+  if (!valor) return undefined;
+  return crypto.createHash('sha256').update(String(valor)).digest('hex');
+}
+
+// minúsculas + sin espacios al borde (regla general de Meta)
+function normalizar(texto) {
+  if (!texto) return '';
+  return String(texto).trim().toLowerCase();
+}
+
+// Teléfono: solo dígitos, con código de país, sin '+' ni espacios.
+// "+54 2615635082" → "542615635082"
+function normalizarTelefono(tel) {
+  if (!tel) return '';
+  return String(tel).replace(/\D/g, '');
+}
+
+// Extrae el número de un monto que puede venir formateado ("$ 315.000" → 315000).
+// CLP y ARS no usan decimales en estos checkouts, así que quitar todo lo que
+// no sea dígito es seguro.
+function parseMonto(valor) {
+  if (valor === undefined || valor === null) return 0;
+  const soloDigitos = String(valor).replace(/\D/g, '');
+  return soloDigitos ? parseInt(soloDigitos, 10) : 0;
+}
+
+// ── META: enviar el evento Purchase ──────────────────────────────
+// Se llama SOLO cuando la orden se creó con éxito en Shopify.
+// Nunca lanza excepciones: si falla, loguea y sigue.
+async function enviarPurchaseMeta(datos) {
+  try {
+    if (!META_PIXEL_ID || !META_CAPI_TOKEN) {
+      console.error('Meta CAPI: faltan META_PIXEL_ID o META_CAPI_TOKEN en Vercel.');
+      return;
+    }
+
+    // Moneda real cobrada (columna S). Si no está, asumimos ARS.
+    const currency = (datos[18] || 'ARS').toUpperCase();
+
+    // Monto REAL cobrado, nunca el precio de lista:
+    //  - ARS  → columna K (número limpio, ya con el descuento aplicado)
+    //  - otra → columna T (displayTotal, texto formateado en la moneda real)
+    const value = currency === 'ARS'
+      ? parseMonto(datos[10])
+      : parseMonto(datos[19]) || parseMonto(datos[10]);
+
+    if (!value) {
+      console.error('Meta CAPI: monto en 0, no se envía el evento. OID:', datos[15]);
+      return;
+    }
+
+    // event_id (columna Y). Si el pedido es viejo y no lo tiene,
+    // usamos el OID: sigue siendo estable y único por pedido.
+    const eventId = (datos[24] || '').trim() || ('oid-' + (datos[15] || ''));
+
+    // Nombre completo (columna B) → nombre y apellido por separado
+    const nombreCompleto = (datos[1] || '').trim();
+    const partes = nombreCompleto.split(' ');
+    const firstName = partes.shift() || '';
+    const lastName = partes.join(' ') || '';
+
+    // Datos de matching, todos hasheados. undefined = campo omitido.
+    const userData = {
+      em: sha256(normalizar(datos[2])),                    // email (C)
+      ph: sha256(normalizarTelefono(datos[3])),            // teléfono (D)
+      fn: sha256(normalizar(firstName)),                   // nombre
+      ln: sha256(normalizar(lastName)),                    // apellido
+      ct: sha256(normalizar(datos[6]).replace(/\s/g, '')), // ciudad (G), sin espacios
+      st: sha256(normalizar(datos[7])),                    // provincia (H)
+      zp: sha256(normalizar(datos[8])),                    // código postal (I)
+      country: sha256(normalizar(datos[9])),               // país (J), ej: "ar"
+      external_id: sha256(normalizar(datos[15])),          // OID (P)
+    };
+
+    // Cookies del navegador (columnas W y X). Solo se mandan si existen.
+    const fbp = (datos[22] || '').trim();
+    const fbc = (datos[23] || '').trim();
+    if (fbp) userData.fbp = fbp;
+    if (fbc) userData.fbc = fbc;
+
+    // Limpiar campos vacíos (Meta rechaza valores undefined)
+    Object.keys(userData).forEach(function (k) {
+      if (!userData[k]) delete userData[k];
+    });
+
+    const payload = {
+      data: [{
+        event_name: 'Purchase',
+        event_time: Math.floor(Date.now() / 1000),
+        event_id: eventId,                    // deduplicación con el navegador
+        action_source: 'website',
+        event_source_url: 'https://almapampa.com/pages/pagar',
+        user_data: userData,
+        custom_data: {
+          currency: currency,
+          value: value,
+          order_id: datos[15] || '',
+        },
+      }],
+    };
+
+    if (META_TEST_EVENT_CODE) {
+      payload.test_event_code = META_TEST_EVENT_CODE;
+    }
+
+    const url = 'https://graph.facebook.com/' + META_API_VERSION + '/' +
+                META_PIXEL_ID + '/events?access_token=' +
+                encodeURIComponent(META_CAPI_TOKEN);
+
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    const respuesta = await resp.json();
+
+    if (!resp.ok || respuesta.error) {
+      console.error('Meta CAPI: error al enviar Purchase:', JSON.stringify(respuesta));
+    } else {
+      console.log('Meta CAPI: Purchase enviado. OID:', datos[15],
+                  '| value:', value, currency,
+                  '| event_id:', eventId,
+                  '| recibidos:', respuesta.events_received);
+    }
+  } catch (metaError) {
+    // Nunca cortamos el flujo: el email al cliente se manda igual
+    console.error('Meta CAPI: excepción al enviar Purchase:', metaError);
+  }
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).send('Método no permitido');
@@ -199,6 +342,7 @@ export default async function handler(req, res) {
         if (resultado.ok) {
           ordenInfo = { creada: true, nombre: resultado.nombre };
           await actualizarSheets(pedido.fila, resultado.nombre);
+          await enviarPurchaseMeta(pedido.datos);
         } else {
           ordenInfo = { creada: false, motivo: resultado.motivo };
           await actualizarSheets(pedido.fila, null);
