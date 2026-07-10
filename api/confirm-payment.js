@@ -214,15 +214,18 @@ async function enviarPurchaseMeta(datos) {
       return;
     }
 
-    // Moneda real cobrada (columna S). Si no está, asumimos ARS.
-    const currency = (datos[18] || 'ARS').toUpperCase();
+    // Fiserv y las transferencias que reportamos a Meta cobran en ARS.
+    const currency = 'ARS';
 
     // Monto REAL cobrado, nunca el precio de lista:
     //  - ARS  → columna K (número limpio, ya con el descuento aplicado)
     //  - otra → columna T (displayTotal, texto formateado en la moneda real)
-    const value = currency === 'ARS'
-      ? parseMonto(datos[10])
-      : parseMonto(datos[19]) || parseMonto(datos[10]);
+    // Monto REAL cobrado, en ARS, para cualquier método de pago:
+    //  - transferencias → send-notification.js guarda arsTotal en la M
+    //  - tarjeta        → save-order.js guarda finalTotal en la M
+    // La M es la única fuente de verdad del monto cobrado. La K queda
+    // como respaldo solo para filas viejas que no tuvieran M.
+    const value = parseMonto(datos[12]) || parseMonto(datos[10]);
 
     if (!value) {
       console.error('Meta CAPI: monto en 0, no se envía el evento. OID:', datos[15]);
