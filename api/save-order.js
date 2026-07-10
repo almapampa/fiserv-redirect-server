@@ -46,11 +46,18 @@ export default async function handler(req, res) {
       data.oid || '',
       data.cartItems || '',
       data.notes || '',
+      data.currency || 'ARS',                    // S — moneda del cobro (Fiserv siempre ARS)
+      data.finalTotal || '',                     // T — monto en moneda del cliente (tarjeta = ARS)
+      JSON.stringify(data.lineItems || []),      // U — productos (IDs y cantidades) para crear la orden en Shopify
+      '',                                        // V — reservada: nº de orden de Shopify (la escribe al confirmar)
+      data.fbp || '',                            // W — cookie _fbp
+      data.fbc || '',                            // X — cookie _fbc (o reconstruida desde fbclid)
+      data.eventId || '',                        // Y — ID único del evento (deduplicación en Meta)
     ];
 
     await sheets.spreadsheets.values.append({
       spreadsheetId: process.env.GOOGLE_SHEET_ID,
-      range: 'Sheet1!A:R',
+      range: 'Sheet1!A:Y',
       valueInputOption: 'RAW',
       resource: { values: [row] },
     });
