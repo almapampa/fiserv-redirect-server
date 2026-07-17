@@ -1,4 +1,5 @@
 import { google } from 'googleapis';
+import { procesarVentaConfirmada } from '../lib/ventas.js';
 
 function getGoogleAuth() {
   const privateKey = process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n');
@@ -6,37 +7,6 @@ function getGoogleAuth() {
     email: process.env.GOOGLE_CLIENT_EMAIL,
     key: privateKey,
     scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-  });
-}
-
-async function saveToSheets(orderData) {
-  const auth = getGoogleAuth();
-  const sheets = google.sheets({ version: 'v4', auth });
-  
-  const row = [
-    new Date().toLocaleString('es-AR', { timeZone: 'America/Argentina/Mendoza' }),
-    orderData.firstName + ' ' + orderData.lastName,
-    orderData.email,
-    orderData.phone,
-    orderData.address,
-    orderData.apartment || '',
-    orderData.city,
-    orderData.province,
-    orderData.postalCode,
-    orderData.country,
-    orderData.cartTotal,
-    orderData.shippingCost,
-    orderData.finalTotal,
-    orderData.installments,
-    'PENDIENTE DE PAGO',
-    orderData.oid || '',
-  ];
-
-  await sheets.spreadsheets.values.append({
-    spreadsheetId: process.env.GOOGLE_SHEET_ID,
-    range: 'Sheet1!A:P',
-    valueInputOption: 'RAW',
-    resource: { values: [row] },
   });
 }
 
@@ -86,15 +56,25 @@ export default async function handler(req, res) {
                         (approval_code && approval_code.startsWith('Y'));
 
       try {
-        const sheetStatus = isSuccess ? 'APROBADO' : 'RECHAZADO';
-        await updateOrderStatus(
-          oid || '',
-          ipgTransactionId,
-          sheetStatus,
-          approval_code
-        );
-      } catch (sheetError) {
-        console.error('Error actualizando Sheets:', sheetError);
+        if (isSuccess) {
+          // Pago aprobado por Fiserv → crear orden en Shopify (descuenta stock),
+          // marcar APROBADO en la planilla y enviar el Purchase a Meta.
+          // Es el mismo circuito que usan los pagos manuales al confirmarse.
+          const resultado = await procesarVentaConfirmada(oid || '', 'APROBADO');
+          if (resultado.creada) {
+            console.log('fiserv-redirect: orden', resultado.nombre, 'creada. OID:', oid);
+          } else if (resultado.yaExistia) {
+            console.log('fiserv-redirect: la orden', resultado.nombre, 'ya existía. OID:', oid);
+          } else {
+            console.error('fiserv-redirect: no se pudo crear la orden:', resultado.motivo, '| OID:', oid);
+          }
+        } else {
+          // Pago rechazado → solo marcar el estado, sin orden ni evento a Meta.
+          await updateOrderStatus(oid || '', ipgTransactionId, 'RECHAZADO', approval_code);
+        }
+      } catch (procesoError) {
+        // Nunca cortamos el flujo: el cliente tiene que ser redirigido igual.
+        console.error('Error procesando venta aprobada:', procesoError);
       }
 
       const shopifyBaseUrl = isSuccess
