@@ -64,8 +64,9 @@ async function saveToSheets(d, status) {
   ];
   await sheets.spreadsheets.values.append({
     spreadsheetId: process.env.GOOGLE_SHEET_ID,
-    range: 'Sheet1!A:Y',
+    range: 'Sheet1!A1',
     valueInputOption: 'RAW',
+    insertDataOption: 'INSERT_ROWS',   // fuerza fila nueva anclada en la columna A
     resource: { values: [row] },
   });
 }
